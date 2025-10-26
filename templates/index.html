@@ -22,8 +22,8 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="form-group">
                 <label for="category">Category</label>
-                <select id="category" required>
-                    <option value="">Select or type new...</option>
+                <select id="category" required onchange="updateShortCode()">
+                    <option value="">Select category...</option>
                     {% for cat in categories %}
                     <option value="{{ cat }}">{{ cat }}</option>
                     {% endfor %}
@@ -31,13 +31,13 @@
             </div>
             
             <div class="form-group">
-                <label for="shortcode">Short Code</label>
-                <input type="text" id="shortcode" placeholder="e.g., FIN" maxlength="10" required>
+                <label for="startyear">Start Year</label>
+                <input type="number" id="startyear" min="1900" max="2100" required onchange="updateShortCode()">
             </div>
             
             <div class="form-group">
-                <label for="startyear">Start Year</label>
-                <input type="number" id="startyear" min="1900" max="2100" required>
+                <label for="shortcode">Short Code (Auto-generated)</label>
+                <input type="text" id="shortcode" readonly style="background-color: #e9ecef; cursor: not-allowed;">
             </div>
             
             <div class="form-group">
@@ -110,7 +110,7 @@
 <div style="margin-top: 30px; padding: 20px; background: #e7f3ff; border-radius: 8px; border-left: 4px solid #667eea;">
     <h3 style="margin-bottom: 10px;">💡 Quick Tips</h3>
     <ul style="margin-left: 20px; line-height: 1.8;">
-        <li>Use the <strong>Preview PDF</strong> button to see your labels before printing</li>
+        <li>Use the <strong>Print Selected</strong> button to see your labels before printing</li>
         <li>Labels are automatically arranged to fit on A4 pages</li>
         <li>Customize colors and styles in the <strong>Settings</strong> page</li>
         <li>The "Notfall" category gets special emergency styling</li>
@@ -122,6 +122,7 @@
 {% block extra_js %}
 <script>
 let labelsData = {{ labels | tojson }};
+let configData = {{ config | tojson }};
 
 function showAlert(message, isError = false) {
     const container = document.getElementById('alert-container');
@@ -133,11 +134,25 @@ function showAlert(message, isError = false) {
     setTimeout(() => alert.remove(), 5000);
 }
 
+function updateShortCode() {
+    const category = document.getElementById('category').value;
+    const year = document.getElementById('startyear').value;
+    
+    if (category && year && configData.categories[category]) {
+        const categoryCode = configData.categories[category].short_code;
+        const shortCode = `${categoryCode}-${year}`;
+        document.getElementById('shortcode').value = shortCode;
+    } else {
+        document.getElementById('shortcode').value = '';
+    }
+}
+
 function showAddLabelForm() {
     document.getElementById('label-form').style.display = 'block';
     document.getElementById('form-title').textContent = 'Add New Label';
     document.getElementById('label-form-element').reset();
     document.getElementById('label-index').value = '';
+    document.getElementById('shortcode').value = '';
 }
 
 function hideAddLabelForm() {
@@ -151,10 +166,11 @@ function editLabel(index) {
     document.getElementById('form-title').textContent = 'Edit Label';
     document.getElementById('label-index').value = index;
     document.getElementById('category').value = label.Category;
-    document.getElementById('shortcode').value = label.ShortCode;
     document.getElementById('startyear').value = label.StartYear;
     document.getElementById('subcategories').value = label.Subcategories;
     document.getElementById('format').value = label.Format;
+    // Auto-compute short code based on category and year
+    updateShortCode();
 }
 
 async function saveLabel(event) {
@@ -226,22 +242,16 @@ async function generateSelectedPDF() {
     const checkboxes = document.querySelectorAll('.label-checkbox:checked');
     
     if (checkboxes.length === 0) {
-        showAlert('Please select at least one label to generate PDF', true);
+        showAlert('Please select at least one label to print', true);
         return;
     }
     
     const indices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index));
     
-    // Open preview with selected indices
+    // Open preview in same tab
     const params = new URLSearchParams();
     indices.forEach(idx => params.append('indices', idx));
-    window.open(`/preview?${params.toString()}`, '_blank');
-}
-            showAlert(result.message, true);
-        }
-    } catch (error) {
-        showAlert('Error deleting label: ' + error.message, true);
-    }
+    window.location.href = `/preview?${params.toString()}`;
 }
 </script>
 {% endblock %}

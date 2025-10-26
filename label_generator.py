@@ -66,11 +66,23 @@ class LabelGenerator:
         """
         template = self.jinja_env.get_template("binder_label.jinja2")
         
-        # Get label dimensions from new label_sizes structure
-        label_sizes = self.style.get("label_sizes", {})
-        format_config = label_sizes.get(format_name, {"width_mm": 38, "height_mm": 285})
-        width_mm = format_config.get("width_mm", 38)
-        height_mm = format_config.get("height_mm", 285)
+        # Get label dimensions from config (not style!)
+        label_sizes = self.config.get("label_sizes", {})
+        
+        if not label_sizes:
+            raise ValueError("No label sizes configured in config. Please add at least one label size.")
+        
+        # Try to get the requested format, fallback to first available if not found
+        if format_name not in label_sizes:
+            format_name = next(iter(label_sizes))  # Get first key
+            print(f"Warning: Format '{format_name}' not found, using '{format_name}' instead")
+        
+        format_config = label_sizes[format_name]
+        width_mm = format_config.get("width_mm")
+        height_mm = format_config.get("height_mm")
+        
+        if width_mm is None or height_mm is None:
+            raise ValueError(f"Label size '{format_name}' is missing width_mm or height_mm")
         
         base_color = self.get_base_color(category)
         accent_color = self.get_accent_color(category, start_year)
@@ -294,28 +306,38 @@ class LabelGenerator:
         right = self.style["page_margin_r_mm"] * mm
         top = self.style.get("page_margin_t_mm", 15) * mm
         
-        # Get label_sizes or fall back to old formats_mm for backward compatibility
-        label_sizes = self.style.get("label_sizes", {})
+        # Get label_sizes from config (not style!)
+        label_sizes = self.config.get("label_sizes", {})
         if not label_sizes and "formats_mm" in self.style:
             # Backward compatibility: convert old formats_mm to label_sizes structure
             label_sizes = {
-                fmt: {"width_mm": width, "height_mm": self.style.get("label_height_mm", 285)}
+                fmt: {"width_mm": width, "height_mm": self.style.get("label_height_mm", 120)}
                 for fmt, width in self.style["formats_mm"].items()
             }
         
-        # Default height if not specified
-        default_height = self.style.get("label_height_mm", 285)
+        if not label_sizes:
+            raise ValueError("No label sizes configured in config. Please add at least one label size.")
+        
+        # Get first available format as fallback
+        first_format_name = next(iter(label_sizes))
         
         gutter = self.style["gutter_x_mm"] * mm
         x = left
     
         for _, row in df.iterrows():
-            fmt = str(row.get("Format", "schmal")).strip().lower()
+            fmt = str(row.get("Format", first_format_name)).strip().lower()
             
-            # Get dimensions from label_sizes
-            format_config = label_sizes.get(fmt, {"width_mm": 38, "height_mm": default_height})
-            w_mm = format_config.get("width_mm", 38)
-            h_mm = format_config.get("height_mm", default_height)
+            # Get dimensions from label_sizes, use first available if format not found
+            if fmt not in label_sizes:
+                print(f"Warning: Format '{fmt}' not found, using '{first_format_name}' instead")
+                fmt = first_format_name
+            
+            format_config = label_sizes[fmt]
+            w_mm = format_config.get("width_mm")
+            h_mm = format_config.get("height_mm")
+            
+            if w_mm is None or h_mm is None:
+                raise ValueError(f"Label size '{fmt}' is missing width_mm or height_mm")
             
             if x + w_mm * mm > page_w - right:
                 c.showPage()

@@ -53,8 +53,13 @@
         
         /* Print page container */
         .print-page {
+            {% if orientation == 'landscape' %}
+            width: 297mm;
+            min-height: 210mm;
+            {% else %}
             width: 210mm;
             min-height: 297mm;
+            {% endif %}
             margin: 20px auto;
             background: white;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
@@ -65,23 +70,25 @@
         /* Labels grid */
         .labels-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, 58mm);
+            grid-template-columns: repeat(auto-fit, {{ label_width }}mm);
             gap: 0;
             justify-content: flex-start;
             align-content: flex-start;
             padding: 15mm 10mm 20mm 10mm;
+            line-height: 0;
         }
         
         /* Individual label wrapper */
         .label-wrapper {
-            width: 58mm;
-            height: 120mm;
+            width: {{ label_width }}mm;
+            height: {{ label_height }}mm;
             display: block;
             margin: 0;
             padding: 0;
             overflow: hidden;
             page-break-inside: avoid;
             break-inside: avoid;
+            line-height: normal;
         }
         
         /* Print styles */
@@ -95,8 +102,13 @@
             }
             
             .print-page {
+                {% if orientation == 'landscape' %}
+                width: 297mm;
+                max-height: 210mm;
+                {% else %}
                 width: 210mm;
                 max-height: 297mm;
+                {% endif %}
                 margin: 0;
                 padding: 0;
                 box-shadow: none;
@@ -112,13 +124,13 @@
                 gap: 0;
                 padding: 15mm 10mm 20mm 10mm;
                 display: grid;
-                grid-template-columns: repeat(auto-fit, 58mm);
+                grid-template-columns: repeat(auto-fit, {{ label_width }}mm);
             }
             
             /* Ensure labels don't break across pages */
             .label-wrapper {
-                width: 58mm;
-                height: 120mm;
+                width: {{ label_width }}mm;
+                height: {{ label_height }}mm;
                 display: block;
                 overflow: hidden;
                 page-break-inside: avoid;
@@ -136,7 +148,7 @@
         }
         
         @page {
-            size: A4 portrait;
+            size: A4 {{ orientation }};
             margin: 0;
         }
     </style>

@@ -216,7 +216,14 @@ The web app runs in debug mode by default. Edit `app.py` to change this.
 
 ## 📄 License
 
+This project is licensed under the Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0).
 See [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Credits
+
+- Emergency exit icon: [ISO 7010 E002](https://commons.wikimedia.org/wiki/File:ISO_7010_E002_new.svg) - Public Domain
 
 ---
 

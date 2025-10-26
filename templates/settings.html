@@ -57,13 +57,15 @@
             </thead>
             <tbody id="categories-table">
                 {% for cat_name, cat_data in config.categories.items() %}
-                <tr>
+                <tr data-category="{{ cat_name }}">
                     <td><strong>{{ cat_name }}</strong></td>
                     <td>{{ cat_data.short_code }}</td>
                     <td>{{ cat_data.base_color }}</td>
                     <td><span class="color-preview" style="background: {{ cat_data.base_color }};"></span></td>
                     <td>{% if cat_data.is_emergency %}✅ Yes{% else %}❌ No{% endif %}</td>
                     <td>
+                        <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.9em; margin-right: 5px;" 
+                                onclick="editCategory('{{ cat_name }}', '{{ cat_data.short_code }}', '{{ cat_data.base_color }}', {{ 'true' if cat_data.is_emergency else 'false' }})">✏️ Edit</button>
                         <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.9em;" 
                                 onclick="deleteCategory('{{ cat_name }}')">🗑️ Delete</button>
                     </td>
@@ -85,10 +87,38 @@
             </div>
             
             <h4 style="margin: 30px 0 15px;">Label Sizes</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
+            <button type="button" class="btn btn-success" style="margin-bottom: 15px;" onclick="showAddSizeForm()">➕ Add New Size</button>
+            
+            <!-- Add Size Form -->
+            <div id="add-size-form" style="display: none; background: white; padding: 20px; border-radius: 6px; margin-bottom: 20px; border: 2px solid #28a745;">
+                <h5 style="margin-bottom: 15px;">New Label Size</h5>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 15px; align-items: end;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="new-size-name">Size Name</label>
+                        <input type="text" id="new-size-name" placeholder="e.g., wide, narrow" required disabled>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="new-size-width">Width (mm)</label>
+                        <input type="number" id="new-size-width" min="20" max="150" value="58" required disabled>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="new-size-height">Height (mm)</label>
+                        <input type="number" id="new-size-height" min="100" max="400" value="120" required disabled>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn btn-success" onclick="addLabelSize()">Save</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideAddSizeForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;" id="sizes-container">
                 {% for format_name, size in config.label_sizes.items() %}
                 <div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px;">
-                    <h5 style="margin-bottom: 10px; text-transform: capitalize;">{{ format_name }}</h5>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h5 style="margin: 0; text-transform: capitalize;">{{ format_name }}</h5>
+                        <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8em;" onclick="deleteLabelSize('{{ format_name }}')">🗑️</button>
+                    </div>
                     <div class="form-group">
                         <label for="size-{{ format_name }}-width">Width (mm)</label>
                         <input type="number" id="size-{{ format_name }}-width" value="{{ size.width_mm }}" min="20" max="150" required>
@@ -128,17 +158,6 @@
                     <label for="year-max">Year Range Max</label>
                     <input type="number" id="year-max" value="{{ config.style.year_max }}" min="1900" max="2100" required>
                 </div>
-            </div>
-                                        <input type="number" id="year-max" value="{{ config.style.year_max }}" min="1900" max="2100" required>
-                </div>
-            </div>
-            
-            <div style="margin-top: 30px;">
-                <button type="submit" class="btn btn-success">💾 Save All Settings</button>
-                <button type="button" class="btn btn-secondary" onclick="location.reload()">🔄 Reset</button>
-            </div>
-        </form>
-    </section>
             </div>
             
             <div style="margin-top: 30px;">
@@ -181,6 +200,157 @@ function showAddCategoryForm() {
 function hideAddCategoryForm() {
     document.getElementById('add-category-form').style.display = 'none';
 }
+
+function editCategory(name, code, color, isEmergency) {
+    // Populate the form with existing values
+    document.getElementById('new-category-name').value = name;
+    document.getElementById('new-category-code').value = code;
+    document.getElementById('new-category-color').value = color;
+    document.getElementById('new-category-emergency').checked = isEmergency;
+    
+    // Show the form
+    showAddCategoryForm();
+    
+    // Change the form submission to update instead of add
+    const form = document.querySelector('#add-category-form form');
+    form.onsubmit = async (event) => {
+        event.preventDefault();
+        await updateCategory(name);
+    };
+    
+    // Update button text
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.textContent = 'Update';
+}
+
+async function updateCategory(oldName) {
+    const name = document.getElementById('new-category-name').value;
+    const code = document.getElementById('new-category-code').value;
+    const color = document.getElementById('new-category-color').value;
+    const isEmergency = document.getElementById('new-category-emergency').checked;
+    
+    try {
+        const response = await fetch(`/api/category/${encodeURIComponent(oldName)}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                name, 
+                short_code: code,
+                color, 
+                is_emergency: isEmergency 
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert(result.message, true);
+        }
+    } catch (error) {
+        showAlert('Error updating category: ' + error.message, true);
+    }
+}
+
+
+function showAddSizeForm() {
+    const form = document.getElementById('add-size-form');
+    form.style.display = 'block';
+    // Enable required validation when form is shown
+    document.getElementById('new-size-name').removeAttribute('disabled');
+    document.getElementById('new-size-width').removeAttribute('disabled');
+    document.getElementById('new-size-height').removeAttribute('disabled');
+}
+
+function hideAddSizeForm() {
+    const form = document.getElementById('add-size-form');
+    form.style.display = 'none';
+    // Disable required validation when form is hidden
+    document.getElementById('new-size-name').setAttribute('disabled', 'disabled');
+    document.getElementById('new-size-width').setAttribute('disabled', 'disabled');
+    document.getElementById('new-size-height').setAttribute('disabled', 'disabled');
+    document.getElementById('new-size-name').value = '';
+    document.getElementById('new-size-width').value = '58';
+    document.getElementById('new-size-height').value = '120';
+}
+
+async function addLabelSize() {
+    const name = document.getElementById('new-size-name').value.toLowerCase().trim();
+    const width = parseInt(document.getElementById('new-size-width').value);
+    const height = parseInt(document.getElementById('new-size-height').value);
+    
+    if (!name || !width || !height) {
+        showAlert('Please fill in all fields', true);
+        return;
+    }
+    
+    try {
+        const configResponse = await fetch('/api/config');
+        const config = await configResponse.json();
+        
+        if (config.label_sizes[name]) {
+            showAlert('A size with this name already exists', true);
+            return;
+        }
+        
+        config.label_sizes[name] = { width_mm: width, height_mm: height };
+        
+        const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert('Label size added successfully!');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert(result.message, true);
+        }
+    } catch (error) {
+        showAlert('Error adding label size: ' + error.message, true);
+    }
+}
+
+async function deleteLabelSize(name) {
+    if (!confirm(`Delete label size "${name}"? This won't affect existing labels.`)) {
+        return;
+    }
+    
+    try {
+        const configResponse = await fetch('/api/config');
+        const config = await configResponse.json();
+        
+        if (Object.keys(config.label_sizes).length === 1) {
+            showAlert('Cannot delete the last label size', true);
+            return;
+        }
+        
+        delete config.label_sizes[name];
+        
+        const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert('Label size deleted successfully!');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert(result.message, true);
+        }
+    } catch (error) {
+        showAlert('Error deleting label size: ' + error.message, true);
+    }
+}
+
 
 async function addCategory(event) {
     event.preventDefault();
@@ -241,10 +411,14 @@ async function deleteCategory(name) {
 async function saveStyleSettings(event) {
     event.preventDefault();
     
+    console.log('[DEBUG] saveStyleSettings called');
+    
     try {
         // Get current config
         const configResponse = await fetch('/api/config');
         const config = await configResponse.json();
+        
+        console.log('[DEBUG] Current config loaded:', config);
         
         // Update style settings
         config.style.emergency_text = document.getElementById('emergency-text').value;
@@ -253,6 +427,8 @@ async function saveStyleSettings(event) {
         config.style.font_size_body = parseInt(document.getElementById('font-size-body').value);
         config.style.year_min = parseInt(document.getElementById('year-min').value);
         config.style.year_max = parseInt(document.getElementById('year-max').value);
+        
+        console.log('[DEBUG] Updated emergency_text:', config.style.emergency_text);
         
         // Update label sizes (dynamically iterate over all available formats)
         Object.keys(config.label_sizes).forEach(format => {
@@ -264,6 +440,8 @@ async function saveStyleSettings(event) {
             }
         });
         
+        console.log('[DEBUG] Sending config to server:', config);
+        
         // Save config
         const response = await fetch('/api/config', {
             method: 'POST',
@@ -273,12 +451,15 @@ async function saveStyleSettings(event) {
         
         const result = await response.json();
         
+        console.log('[DEBUG] Server response:', result);
+        
         if (result.success) {
             showAlert(result.message);
         } else {
             showAlert(result.message, true);
         }
     } catch (error) {
+        console.error('[ERROR] saveStyleSettings failed:', error);
         showAlert('Error saving settings: ' + error.message, true);
     }
 }
