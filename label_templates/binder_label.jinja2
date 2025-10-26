@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .label {
+            width: {{ width_mm }}mm;
+            height: {{ height_mm }}mm;
+            border: 1px solid black;
+            position: relative;
+            display: inline-block;
+            page-break-inside: avoid;
+            font-family: {{ style.font_regular }};
+            box-sizing: border-box;
+        }
+        
+        {% if is_emergency %}
+        .label::after {
+            content: '';
+            position: absolute;
+            top: 1.2px;
+            left: 1.2px;
+            right: 1.2px;
+            bottom: 1.2px;
+            border: {{ style.emergency_border_mm }}mm solid {{ base_color }};
+            pointer-events: none;
+        }
+        {% endif %}
+        
+        .top-bar {
+            background-color: {{ accent_color }};
+            height: {{ style.top_bar_height_mm }}mm;
+            padding: {{ style.padding }}mm;
+            color: white;
+            position: relative;
+        }
+        
+        .category-name {
+            font-family: {{ style.font_bold }};
+            font-size: {{ style.font_size_header }}pt;
+            margin-bottom: 2mm;
+        }
+        
+        .label-id {
+            font-family: {{ style.font_regular }};
+            font-size: {{ style.font_size_subheader }}pt;
+        }
+        
+        .content-area {
+            padding: {{ style.padding }}mm;
+            padding-top: 8mm;
+        }
+        
+        .contents-header {
+            font-family: {{ style.font_bold }};
+            font-size: {{ style.font_size_body }}pt;
+            margin-bottom: 4mm;
+        }
+        
+        .subcategory-list {
+            font-family: {{ style.font_regular }};
+            font-size: {{ style.font_size_body - 1 }}pt;
+            line-height: 1.3;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .subcategory-list li {
+            margin-bottom: 3mm;
+        }
+        
+        .subcategory-list li:before {
+            content: "• ";
+        }
+        
+        .timeline {
+            position: absolute;
+            bottom: 5mm;
+            left: {{ style.padding }}mm;
+            right: {{ style.padding }}mm;
+        }
+        
+        .timeline-label {
+            font-size: 9pt;
+            margin-bottom: 2mm;
+        }
+        
+        .timeline-boxes {
+            display: flex;
+            gap: 1mm;
+        }
+        
+        .timeline-box {
+            width: 15mm;
+            height: 10mm;
+            border: 1px solid black;
+            position: relative;
+            text-align: center;
+            font-size: 7pt;
+            padding-top: 11mm;
+        }
+        
+        {% if is_emergency %}
+        .emergency-message {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-family: {{ style.font_bold }};
+            font-size: 9pt;
+            width: 90%;
+            line-height: 1.4;
+        }
+        {% endif %}
+    </style>
+</head>
+<body>
+    <div class="label">
+        <div class="top-bar">
+            <div class="category-name">{{ category }}</div>
+            <div class="label-id">{{ short_code }}-{{ start_year }}</div>
+        </div>
+        
+        <div class="content-area">
+            <div class="contents-header">Contents:</div>
+            <ul class="subcategory-list">
+                {% for subcat in subcategories[:8] %}
+                <li>{{ subcat }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="timeline">
+            <div class="timeline-label">Start: {{ start_year }}</div>
+            <div class="timeline-boxes">
+                {% for i in range(11) %}
+                <div class="timeline-box">
+                    {% if i % 2 == 0 %}{{ start_year + i }}{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        {% if is_emergency %}
+        <div class="emergency-message">
+            {{ emergency_text|replace('\n', '<br>')|safe }}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

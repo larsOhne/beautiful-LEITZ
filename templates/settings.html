@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - LEITZ Label Generator{% endblock %}
+
+{% block content %}
+<div id="alert-container"></div>
+
+<h2 style="margin-bottom: 30px;">⚙️ Configuration Settings</h2>
+
+<div style="display: grid; gap: 30px;">
+    <!-- Categories Section -->
+    <section style="background: #f8f9fa; padding: 25px; border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3>🎨 Categories & Colors</h3>
+            <button class="btn btn-success" onclick="showAddCategoryForm()">➕ Add Category</button>
+        </div>
+        
+        <!-- Add Category Form -->
+        <div id="add-category-form" style="display: none; background: white; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+            <form onsubmit="addCategory(event)">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 15px; align-items: end;">
+                    <div class="form-group" style="margin: 0;">
+                        <label for="new-category-name">Category Name</label>
+                        <input type="text" id="new-category-name" placeholder="e.g., Medical" required>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="new-category-code">Short Code</label>
+                        <input type="text" id="new-category-code" placeholder="e.g., MED" maxlength="5" required>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label for="new-category-color">Base Color</label>
+                        <input type="color" id="new-category-color" value="#6A1B9A" required>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label>
+                            <input type="checkbox" id="new-category-emergency"> Emergency
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn btn-success">Save</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideAddCategoryForm()">Cancel</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Code</th>
+                    <th>Color</th>
+                    <th>Preview</th>
+                    <th>Emergency</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="categories-table">
+                {% for cat_name, cat_data in config.categories.items() %}
+                <tr>
+                    <td><strong>{{ cat_name }}</strong></td>
+                    <td>{{ cat_data.short_code }}</td>
+                    <td>{{ cat_data.base_color }}</td>
+                    <td><span class="color-preview" style="background: {{ cat_data.base_color }};"></span></td>
+                    <td>{% if cat_data.is_emergency %}✅ Yes{% else %}❌ No{% endif %}</td>
+                    <td>
+                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.9em;" 
+                                onclick="deleteCategory('{{ cat_name }}')">🗑️ Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    
+    <!-- Style Settings Section -->
+    <section style="background: #f8f9fa; padding: 25px; border-radius: 8px;">
+        <h3 style="margin-bottom: 20px;">📐 Style Settings</h3>
+        
+        <form id="style-form" onsubmit="saveStyleSettings(event)">
+            <h4 style="margin-bottom: 15px;">Emergency Text</h4>
+            <div class="form-group">
+                <label for="emergency-text">Emergency Message</label>
+                <textarea id="emergency-text" rows="3" required>{{ config.style.emergency_text }}</textarea>
+            </div>
+            
+            <h4 style="margin: 30px 0 15px;">Label Sizes</h4>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+                {% for format_name, size in config.label_sizes.items() %}
+                <div style="border: 1px solid #dee2e6; padding: 15px; border-radius: 6px;">
+                    <h5 style="margin-bottom: 10px; text-transform: capitalize;">{{ format_name }}</h5>
+                    <div class="form-group">
+                        <label for="size-{{ format_name }}-width">Width (mm)</label>
+                        <input type="number" id="size-{{ format_name }}-width" value="{{ size.width_mm }}" min="20" max="150" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="size-{{ format_name }}-height">Height (mm)</label>
+                        <input type="number" id="size-{{ format_name }}-height" value="{{ size.height_mm }}" min="100" max="400" required>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <h4 style="margin-bottom: 15px;">General Settings</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label for="top-bar-height">Top Bar Height (mm)</label>
+                    <input type="number" id="top-bar-height" value="{{ config.style.top_bar_height_mm }}" min="10" max="100" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="font-size-header">Header Font Size</label>
+                    <input type="number" id="font-size-header" value="{{ config.style.font_size_header }}" min="8" max="24" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="font-size-body">Body Font Size</label>
+                    <input type="number" id="font-size-body" value="{{ config.style.font_size_body }}" min="6" max="18" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="year-min">Year Range Min</label>
+                    <input type="number" id="year-min" value="{{ config.style.year_min }}" min="1900" max="2100" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="year-max">Year Range Max</label>
+                    <input type="number" id="year-max" value="{{ config.style.year_max }}" min="1900" max="2100" required>
+                </div>
+            </div>
+                                        <input type="number" id="year-max" value="{{ config.style.year_max }}" min="1900" max="2100" required>
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <button type="submit" class="btn btn-success">💾 Save All Settings</button>
+                <button type="button" class="btn btn-secondary" onclick="location.reload()">🔄 Reset</button>
+            </div>
+        </form>
+    </section>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <button type="submit" class="btn btn-success">💾 Save All Settings</button>
+                <button type="button" class="btn btn-secondary" onclick="location.reload()">🔄 Reset</button>
+            </div>
+        </form>
+    </section>
+    
+    <!-- Info Section -->
+    <section style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107;">
+        <h4 style="margin-bottom: 10px;">ℹ️ About Settings</h4>
+        <ul style="margin-left: 20px; line-height: 1.8;">
+            <li><strong>Categories</strong> determine the color scheme for your labels</li>
+            <li><strong>Year Range</strong> controls the color gradient - newer years fade to white</li>
+            <li><strong>Format Widths</strong> match your physical LEITZ binder spine sizes</li>
+            <li>Changes are saved in <code>data/label_config.yaml</code></li>
+            <li>The data folder is git-ignored to keep your settings local</li>
+        </ul>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showAlert(message, isError = false) {
+    const container = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = 'alert ' + (isError ? 'alert-error' : 'alert-success');
+    alert.textContent = message;
+    container.innerHTML = '';
+    container.appendChild(alert);
+    setTimeout(() => alert.remove(), 5000);
+}
+
+function showAddCategoryForm() {
+    document.getElementById('add-category-form').style.display = 'block';
+}
+
+function hideAddCategoryForm() {
+    document.getElementById('add-category-form').style.display = 'none';
+}
+
+async function addCategory(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('new-category-name').value;
+    const code = document.getElementById('new-category-code').value;
+    const color = document.getElementById('new-category-color').value;
+    const isEmergency = document.getElementById('new-category-emergency').checked;
+    
+    try {
+        const response = await fetch('/api/category', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                name, 
+                short_code: code,
+                color, 
+                is_emergency: isEmergency 
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert(result.message, true);
+        }
+    } catch (error) {
+        showAlert('Error adding category: ' + error.message, true);
+    }
+}
+
+async function deleteCategory(name) {
+    if (!confirm(`Delete category "${name}"? This won't affect existing labels.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/category?name=${encodeURIComponent(name)}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert(result.message, true);
+        }
+    } catch (error) {
+        showAlert('Error deleting category: ' + error.message, true);
+    }
+}
+
+async function saveStyleSettings(event) {
+    event.preventDefault();
+    
+    try {
+        // Get current config
+        const configResponse = await fetch('/api/config');
+        const config = await configResponse.json();
+        
+        // Update style settings
+        config.style.emergency_text = document.getElementById('emergency-text').value;
+        config.style.top_bar_height_mm = parseInt(document.getElementById('top-bar-height').value);
+        config.style.font_size_header = parseInt(document.getElementById('font-size-header').value);
+        config.style.font_size_body = parseInt(document.getElementById('font-size-body').value);
+        config.style.year_min = parseInt(document.getElementById('year-min').value);
+        config.style.year_max = parseInt(document.getElementById('year-max').value);
+        
+        // Update label sizes
+        ['schmal', 'mittel', 'breit', 'extra'].forEach(format => {
+            config.label_sizes[format].width_mm = parseInt(document.getElementById(`size-${format}-width`).value);
+            config.label_sizes[format].height_mm = parseInt(document.getElementById(`size-${format}-height`).value);
+        });
+        
+        // Save config
+        const response = await fetch('/api/config', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showAlert(result.message);
+        } else {
+            showAlert(result.message, true);
+        }
+    } catch (error) {
+        showAlert('Error saving settings: ' + error.message, true);
+    }
+}
+</script>
+{% endblock %}
