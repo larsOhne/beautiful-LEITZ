@@ -9,7 +9,7 @@
     <h2>📝 Your Labels</h2>
     <div style="display: flex; gap: 10px;">
         <button class="btn btn-success" onclick="showAddLabelForm()">➕ Add New Label</button>
-        <button class="btn" onclick="generateSelectedPDF()">📄 Generate Selected PDF</button>
+        <button class="btn" onclick="generateSelectedPDF()">�️ Print Selected</button>
     </div>
 </div>
 
@@ -43,10 +43,9 @@
             <div class="form-group">
                 <label for="format">Format</label>
                 <select id="format" required>
-                    <option value="schmal">Schmal (38mm)</option>
-                    <option value="mittel">Mittel (52mm)</option>
-                    <option value="breit">Breit (61mm)</option>
-                    <option value="extra">Extra (80mm)</option>
+                    {% for format_name, size in config.label_sizes.items() %}
+                    <option value="{{ format_name }}">{{ format_name|capitalize }} ({{ size.width_mm }}mm × {{ size.height_mm }}mm)</option>
+                    {% endfor %}
                 </select>
             </div>
         </div>

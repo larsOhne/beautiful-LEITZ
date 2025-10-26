@@ -44,6 +44,7 @@ def ensure_data_directory():
                 "font_size_body": 9,
                 "page_margin_l_mm": 10,
                 "page_margin_r_mm": 10,
+                "page_margin_t_mm": 15,
                 "page_margin_b_mm": 20,
                 "gutter_x_mm": 3,
                 "top_bar_height_mm": 30,
@@ -54,10 +55,7 @@ def ensure_data_directory():
                 "emergency_text": "IN CASE OF EMERGENCY:\nTake this binder when leaving due to fire or flood!"
             },
             "label_sizes": {
-                "schmal": {"width_mm": 38, "height_mm": 285},
-                "mittel": {"width_mm": 52, "height_mm": 285},
-                "breit": {"width_mm": 61, "height_mm": 285},
-                "extra": {"width_mm": 80, "height_mm": 285}
+                "normal": {"width_mm": 58, "height_mm": 120}
             },
             "categories": {
                 "Finance": {
@@ -108,7 +106,7 @@ def ensure_data_directory():
                 "Passports;Certificates;Insurance IDs",
                 "Building permit;Offers;Invoices"
             ],
-            "Format": ["schmal", "breit", "schmal", "extra"]
+            "Format": ["normal", "normal", "normal", "normal"]
         })
         sample_df.to_csv(LABELS_FILE, index=False)
         print(f"✓ Created sample labels CSV: {LABELS_FILE}")
@@ -264,7 +262,7 @@ def api_category():
 
 @app.route('/preview')
 def preview():
-    """Preview labels in browser (printable page)."""
+    """Preview labels in browser (printable page with HTML labels)."""
     try:
         config = load_config()
         df = load_labels()
@@ -281,15 +279,28 @@ def preview():
             except (ValueError, IndexError) as e:
                 return f"Invalid indices parameter: {str(e)}", 400
         
+        # Generate HTML labels for browser printing
         generator = LabelGenerator(config)
-        pdf_bytes = generator.generate_pdf(df)
+        labels_html = []
         
-        return send_file(
-            BytesIO(pdf_bytes),
-            mimetype='application/pdf',
-            as_attachment=False,
-            download_name='labels_preview.pdf'
-        )
+        for _, row in df.iterrows():
+            fmt = str(row.get("Format", "normal")).strip().lower()
+            subcats = str(row.get("Subcategories", "")).replace(",", ";").split(";")
+            subcats = [s.strip() for s in subcats if s.strip()]
+            
+            # Render each label using the HTML template
+            label_html = generator.render_label_template(
+                category=row["Category"],
+                short_code=row["ShortCode"],
+                start_year=int(row["StartYear"]),
+                subcategories=subcats,
+                format_name=fmt
+            )
+            labels_html.append(label_html)
+        
+        # Render a print-ready page with all labels
+        return render_template('print_labels.html', labels_html=labels_html)
+        
     except Exception as e:
         return f"Error generating preview: {str(e)}", 500
 
@@ -298,6 +309,8 @@ def preview():
 def download():
     """Download labels as PDF."""
     try:
+        from datetime import datetime
+        
         config = load_config()
         df = load_labels()
         
@@ -307,11 +320,15 @@ def download():
         generator = LabelGenerator(config)
         pdf_bytes = generator.generate_pdf(df)
         
+        # Generate unique filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'leitz_labels_{timestamp}.pdf'
+        
         return send_file(
             BytesIO(pdf_bytes),
             mimetype='application/pdf',
             as_attachment=True,
-            download_name='leitz_labels.pdf'
+            download_name=filename
         )
     except Exception as e:
         return f"Error generating PDF: {str(e)}", 500

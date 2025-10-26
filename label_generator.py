@@ -74,6 +74,7 @@ class LabelGenerator:
         
         base_color = self.get_base_color(category)
         accent_color = self.get_accent_color(category, start_year)
+        accent_color_hex = self.color_to_hex(accent_color)  # Convert to hex for HTML
         
         # Check if this is an emergency category
         cat_info = self.categories.get(category, {})
@@ -87,7 +88,7 @@ class LabelGenerator:
             "subcategories": subcategories,
             "format": format_name,
             "base_color": base_color,
-            "accent_color": accent_color,
+            "accent_color": accent_color_hex,  # Use hex string for HTML
             "width_mm": width_mm,
             "height_mm": height_mm,
             "is_emergency": is_emergency,
@@ -112,6 +113,20 @@ class LabelGenerator:
             self.style["font_regular"] = "Helvetica"
             self.style["font_bold"] = "Helvetica-Bold"
             self.fonts_registered = True
+    
+    def get_text_contrast_color(self, bg_color: Color) -> Color:
+        """Get contrasting text color (black or white) based on background luminance."""
+        # Calculate relative luminance
+        luminance = 0.299 * bg_color.red + 0.587 * bg_color.green + 0.114 * bg_color.blue
+        # Return black for light backgrounds, white for dark backgrounds
+        return black if luminance > 0.5 else white
+    
+    def color_to_hex(self, color: Color) -> str:
+        """Convert ReportLab Color object to hex string for HTML."""
+        r = int(color.red * 255)
+        g = int(color.green * 255)
+        b = int(color.blue * 255)
+        return "#%02x%02x%02x" % (r, g, b)
     
     def clamp(self, v, lo, hi):
         """Clamp value between lo and hi."""
@@ -213,7 +228,9 @@ class LabelGenerator:
         c.setFillColor(accent)
         c.rect(x0, y0 + h - bar_h, w, bar_h, stroke=0, fill=1)
     
-        c.setFillColor(white)
+        # Use contrast color for text on colored background
+        text_color = self.get_text_contrast_color(accent)
+        c.setFillColor(text_color)
         c.setFont(self.style["font_bold"], self.style["font_size_header"])
         c.drawString(x0 + pad, y0 + h - bar_h + pad + 7, cat)
         c.setFont(self.style["font_regular"], self.style["font_size_subheader"])
@@ -225,43 +242,57 @@ class LabelGenerator:
         c.setFont(self.style["font_bold"], self.style["font_size_body"])
         c.drawString(x0 + pad, y_text, "Contents:")
         c.setFont(self.style["font_regular"], self.style["font_size_body"] - 1)
-        y_text -= 12
-        for s in subcats:
+        y_text -= 10
+        # Limit to 5 subcategories for 150mm height
+        for s in subcats[:5]:
             c.drawString(x0 + pad, y_text, f"• {s}")
-            y_text -= 11
-            if y_text < y0 + 50:
+            y_text -= 9
+            if y_text < y0 + 60:
                 break
     
-        # Timeline
-        y_line = y0 + 25
-        c.setFont(self.style["font_regular"], 9)
-        c.drawString(x0 + pad, y_line + 15, f"Start: {year}")
-        box_w = 15
-        gap = 3
-        bx = x0 + pad
-        for i in range(11):
-            c.rect(bx, y_line, box_w, 10, stroke=1, fill=0)
-            if i % 2 == 0:
-                c.drawString(bx + 3, y_line - 8, str(year + i))
-            bx += box_w + gap
+        # Timeline - Vertical with circles
+        timeline_x = x0 + w / 2
+        timeline_start_y = y0 + 30
+        circle_radius = 3 * mm
+        circle_gap = 12 * mm
+        
+        c.setFont(self.style["font_regular"], 7)
+        # First circle with year label
+        c.circle(timeline_x, timeline_start_y, circle_radius, stroke=1, fill=0)
+        c.setFont(self.style["font_bold"], 7)
+        c.drawCentredString(timeline_x, timeline_start_y - 5 * mm, str(year))
+        
+        # Additional circles with blank lines
+        c.setFont(self.style["font_regular"], 6)
+        for i in range(1, 4):
+            y_pos = timeline_start_y + (i * circle_gap)
+            c.circle(timeline_x, y_pos, circle_radius, stroke=1, fill=0)
+            # Draw blank line for handwriting
+            c.setStrokeColor(Color(0.8, 0.8, 0.8))
+            c.setLineWidth(0.5)
+            c.line(timeline_x - 7.5 * mm, y_pos - 3 * mm, timeline_x + 7.5 * mm, y_pos - 3 * mm)
+            c.setStrokeColor(black)
     
-        # Emergency special
+        # Emergency text
         if is_emergency:
-            c.setFont(self.style["font_bold"], 9)
+            c.setFont(self.style["font_bold"], 5)
             c.setFillColor(black)
             # Get emergency text from config
             emergency_text = self.style.get("emergency_text", "IN CASE OF EMERGENCY:\nTake this binder when leaving due to fire or flood!")
             lines = emergency_text.split("\n")
-            cy = y0 + h * 0.4
-            for i, line in enumerate(lines):
-                c.drawCentredString(x0 + w / 2, cy - i * 12, line)
+            # Position in middle area, limit to 4 lines
+            cy = y0 + h * 0.45
+            for i, line in enumerate(lines[:4]):
+                if len(line) > 35:  # Truncate long lines
+                    line = line[:32] + "..."
+                c.drawCentredString(x0 + w / 2, cy - i * 6, line)
     
     def paginate_and_draw(self, df, c):
         """Paginate labels and draw them on the canvas."""
         page_w, page_h = A4
         left = self.style["page_margin_l_mm"] * mm
         right = self.style["page_margin_r_mm"] * mm
-        bottom = self.style["page_margin_b_mm"] * mm
+        top = self.style.get("page_margin_t_mm", 15) * mm
         
         # Get label_sizes or fall back to old formats_mm for backward compatibility
         label_sizes = self.style.get("label_sizes", {})
@@ -289,12 +320,16 @@ class LabelGenerator:
             if x + w_mm * mm > page_w - right:
                 c.showPage()
                 x = left
+            
+            # Position labels from top instead of bottom
+            y_position = page_h - top - h_mm * mm
+            
             sub = str(row.get("Subcategories", "")).replace(",", ";").split(";")
             sub = [s.strip() for s in sub if s.strip()]
             self.draw_label(
                 c,
                 x,
-                bottom,
+                y_position,
                 w_mm,
                 h_mm,
                 row["Category"],
